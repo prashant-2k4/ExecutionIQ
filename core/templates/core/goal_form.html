@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Goal</title>
+</head>
+<body>
+
+    <h1>Create a Goal</h1>
+
+    <form method="post">
+        {% csrf_token %}
+
+        {{ form.as_p }}
+
+        <button type="submit">Create Goal</button>
+    </form>
+
+</body>
+</html>

@@ -1,0 +1,104 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ExecutionIQ</title>
+    <link rel="stylesheet" href="{% static 'core/style.css' %}">
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <div class="logo">ExecutionIQ</div>
+        <div>Execution Intelligence</div>
+    </nav>
+
+    <main class="container">
+
+        <div class="page-header">
+            <h1>My Goals</h1>
+            <a href="/goals/create/" class="btn">+ Create Goal</a>
+        </div>
+
+        {% for goal in goals %}
+
+            <div class="goal-card">
+
+                <h2>{{ goal.title }}</h2>
+
+                <p class="goal-description">
+                    {{ goal.description }}
+                </p>
+
+                <div class="goal-info">
+                    <span>📅 Deadline: {{ goal.deadline }}</span>
+                    <span>⏱ {{ goal.daily_available_hours }} hrs/day</span>
+                    <span>Priority: {{ goal.priority }}</span>
+                </div>
+
+                <h3 class="section-title">Tasks</h3>
+
+                <ul class="task-list">
+
+                    {% for task in goal.tasks.all %}
+
+                        <li class="task">
+
+                            <div class="task-info">
+                                <strong>{{ task.title }}</strong>
+
+                                <span class="task-meta">
+                                    {{ task.estimated_hours }} hours ·
+                                    {{ task.status }} ·
+                                    {{ task.priority }}
+                                </span>
+                            </div>
+
+                            <a
+                                href="/tasks/{{ task.id }}/log/"
+                                class="btn"
+                            >
+                                Log Work
+                            </a>
+
+                        </li>
+
+                    {% empty %}
+
+                        <li class="empty">
+                            No tasks yet.
+                        </li>
+
+                    {% endfor %}
+
+                </ul>
+
+                <br>
+
+                <a
+                    href="/goals/{{ goal.id }}/tasks/create/"
+                    class="btn"
+                >
+                    + Add Task
+                </a>
+
+            </div>
+
+        {% empty %}
+
+            <div class="goal-card empty">
+                <h2>No goals yet</h2>
+                <p>Create your first goal to get started.</p>
+
+                <a href="/goals/create/" class="btn">
+                    Create Goal
+                </a>
+            </div>
+
+        {% endfor %}
+
+    </main>
+
+</body>
+</html>
