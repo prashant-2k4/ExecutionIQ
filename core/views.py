@@ -5,6 +5,7 @@ from django import forms
 from core.services.execution_engine import calculate_execution_metrics
 from core.services.ai_planner import generate_goal_plan
 from datetime import date, timedelta
+from django.contrib.auth.models import User
 
 def home(request):
     return render(request, 'core/home.html')
@@ -118,8 +119,11 @@ def generate_ai_plan(request):
             try:
                 plan = generate_goal_plan(goal_text)
 
+                user, _ = User.objects.get_or_create(username="demo")
+
                 goal = Goal.objects.create(
-                    title=plan["goal"],
+                    user=user,
+                    title=plan.get("goal", goal_text[:200]),
                     description=goal_text,
                     deadline=date.today() + timedelta(days=30),
                     daily_available_hours=2,
@@ -137,11 +141,9 @@ def generate_ai_plan(request):
 
                 return redirect("/")
 
-            except Exception:
-                error = (
-                    "The AI planner is temporarily unavailable. "
-                    "Please try again."
-                )
+            except Exception as e:
+                print("AI PLANNER ERROR:", repr(e))
+                error = f"AI Planner Error: {e}"
 
                 return render(
                     request,
