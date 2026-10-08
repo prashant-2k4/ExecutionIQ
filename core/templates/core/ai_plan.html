@@ -1,0 +1,61 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Planner - ExecutionIQ</title>
+    <link rel="stylesheet" href="{% static 'core/style.css' %}">
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>AI Goal Planner</h1>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <input
+            type="text"
+            name="goal_text"
+            placeholder="Example: I want to learn Python in 30 days"
+            value="{{ goal_text|default:'' }}"
+            required
+        >
+
+        <button type="submit" class="btn">
+            Generate Plan
+        </button>
+    </form>
+
+    {% if error %}
+    <div class="task">
+        <strong>AI Planner:</strong>
+        {{ error }}
+    </div>
+    {% endif %}
+
+    {% if plan %}
+        <h2>Generated Plan</h2>
+
+        <p>
+            <strong>Total Estimated Hours:</strong>
+            {{ plan.total_estimated_hours }}
+        </p>
+
+        {% for task in plan.tasks %}
+            <div class="task">
+                <h3>{{ task.title }}</h3>
+                <p>
+                    {{ task.estimated_hours }} hours —
+                    {{ task.priority }}
+                </p>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+</div>
+
+</body>
+</html>

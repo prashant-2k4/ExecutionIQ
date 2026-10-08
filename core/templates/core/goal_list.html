@@ -37,6 +37,33 @@
                     <span>Priority: {{ goal.priority }}</span>
                 </div>
 
+                <div class="execution-metrics">
+    <div class="metric">
+        <span>Progress</span>
+        <strong>{{ goal.execution_metrics.progress_percentage|floatformat:0 }}%</strong>
+    </div>
+
+    <div class="metric">
+        <span>Remaining Work</span>
+        <strong>{{ goal.execution_metrics.remaining_workload|floatformat:1 }} hrs</strong>
+    </div>
+
+    <div class="metric">
+        <span>Required Daily</span>
+        <strong>{{ goal.execution_metrics.required_daily_hours|floatformat:1 }} hrs</strong>
+    </div>
+
+    <div class="metric">
+        <span>Feasibility</span>
+        <strong>{{ goal.execution_metrics.feasibility_score|floatformat:0 }}/100</strong>
+    </div>
+
+    <div class="metric">
+        <span>Risk</span>
+        <strong>{{ goal.execution_metrics.risk }}</strong>
+    </div>
+</div>
+
                 <h3 class="section-title">Tasks</h3>
 
                 <ul class="task-list">

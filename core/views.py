@@ -2,6 +2,9 @@ from django.shortcuts import render, redirect, get_object_or_404
 # Create your views here.
 from .models import Goal, Task, ExecutionLog
 from django import forms
+from core.services.execution_engine import calculate_execution_metrics
+from core.services.ai_planner import generate_goal_plan
+from datetime import date, timedelta
 
 def home(request):
     return render(request, 'core/home.html')
@@ -10,10 +13,13 @@ def home(request):
 def goal_list(request):
     goals = Goal.objects.all()
 
+    for goal in goals:
+        goal.execution_metrics = calculate_execution_metrics(goal)
+
     return render(
         request,
-        'core/goal_list.html',
-        {'goals': goals}
+        "core/goal_list.html",
+        {"goals": goals},
     )
 
 class GoalForm(forms.ModelForm):
@@ -102,4 +108,58 @@ def create_execution_log(request, task_id):
         request,
         'core/execution_log_form.html',
         {'form': form, 'task': task}
+    )
+
+def generate_ai_plan(request):
+    if request.method == "POST":
+        goal_text = request.POST.get("goal_text", "").strip()
+
+        if goal_text:
+            try:
+                plan = generate_goal_plan(goal_text)
+
+                goal = Goal.objects.create(
+                    title=plan["goal"],
+                    description=goal_text,
+                    deadline=date.today() + timedelta(days=30),
+                    daily_available_hours=2,
+                )
+
+                for task_data in plan["tasks"]:
+                    priority = task_data["priority"].upper()
+
+                    Task.objects.create(
+                        goal=goal,
+                        title=task_data["title"],
+                        estimated_hours=task_data["estimated_hours"],
+                        priority=priority,
+                    )
+
+                return redirect("/")
+
+            except Exception:
+                error = (
+                    "The AI planner is temporarily unavailable. "
+                    "Please try again."
+                )
+
+                return render(
+                    request,
+                    "core/ai_plan.html",
+                    {
+                        "goal_text": goal_text,
+                        "error": error,
+                    },
+                )
+
+    return render(request, "core/ai_plan.html")
+
+    return render(
+        request,
+        "core/ai_plan.html",
+        {
+            "goal_text": goal_text,
+            "plan": plan,
+            "error": error,
+        },
     )
