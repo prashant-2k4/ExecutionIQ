@@ -1,0 +1,30 @@
+{% extends "core/base.html" %}
+
+{% block title %}Log In - ExecutionIQ{% endblock %}
+
+{% block content %}
+    <div class="page-header">
+        <h1>Log In</h1>
+    </div>
+
+    <form method="post" class="form-card">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="alert alert-error">Invalid username or password.</div>
+        {% endif %}
+
+        {% for field in form %}
+            <div class="form-field">
+                {{ field.label_tag }}
+                {{ field }}
+                {{ field.errors }}
+            </div>
+        {% endfor %}
+
+        <input type="hidden" name="next" value="{{ next }}">
+        <button type="submit" class="btn">Log In</button>
+    </form>
+
+    <p>New to ExecutionIQ? <a href="{% url 'register' %}">Create an account</a>.</p>
+{% endblock %}

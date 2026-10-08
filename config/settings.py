@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'accounts',
     'core',
 ]
 
@@ -86,6 +87,13 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+
+
+# Authentication (session-based for the Django-rendered pages; JWT is added
+# with the REST API).
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'goal_list'
+LOGOUT_REDIRECT_URL = 'login'
 
 
 # Database

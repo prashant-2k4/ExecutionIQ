@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from django.contrib import messages
-from django.contrib.auth.models import User
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -18,14 +18,26 @@ AI_PLAN_DEFAULT_DAYS = 30
 AI_PLAN_DEFAULT_DAILY_HOURS = 2
 
 
-def get_demo_user():
-    # Temporary owner for all records until authentication lands (roadmap P1).
-    user, _ = User.objects.get_or_create(username="demo")
-    return user
+def get_user_goal(request, goal_id):
+    # Another user's goal is reported as missing so its existence is not leaked.
+    return get_object_or_404(Goal, id=goal_id, user=request.user)
 
 
+def get_user_task(request, task_id):
+    return get_object_or_404(
+        Task.objects.select_related("goal"),
+        id=task_id,
+        goal__user=request.user,
+    )
+
+
+@login_required
 def goal_list(request):
-    goals = Goal.objects.prefetch_related("tasks").order_by("deadline", "id")
+    goals = (
+        Goal.objects.filter(user=request.user)
+        .prefetch_related("tasks")
+        .order_by("deadline", "id")
+    )
 
     for goal in goals:
         goal.execution_metrics = calculate_execution_metrics(goal)
@@ -33,13 +45,14 @@ def goal_list(request):
     return render(request, "core/goal_list.html", {"goals": goals})
 
 
+@login_required
 def create_goal(request):
     if request.method == "POST":
         form = GoalForm(request.POST)
 
         if form.is_valid():
             goal = form.save(commit=False)
-            goal.user = get_demo_user()
+            goal.user = request.user
             goal.save()
             messages.success(request, "Goal created.")
             return redirect("goal_list")
@@ -49,8 +62,9 @@ def create_goal(request):
     return render(request, "core/goal_form.html", {"form": form})
 
 
+@login_required
 def create_task(request, goal_id):
-    goal = get_object_or_404(Goal, id=goal_id)
+    goal = get_user_goal(request, goal_id)
 
     if request.method == "POST":
         form = TaskForm(request.POST)
@@ -67,8 +81,9 @@ def create_task(request, goal_id):
     return render(request, "core/task_form.html", {"form": form, "goal": goal})
 
 
+@login_required
 def edit_task(request, task_id):
-    task = get_object_or_404(Task, id=task_id)
+    task = get_user_task(request, task_id)
 
     if request.method == "POST":
         form = TaskForm(request.POST, instance=task)
@@ -87,9 +102,10 @@ def edit_task(request, task_id):
     )
 
 
+@login_required
 @require_POST
 def toggle_task_completion(request, task_id):
-    task = get_object_or_404(Task, id=task_id)
+    task = get_user_task(request, task_id)
 
     if task.is_completed:
         has_logs = task.execution_logs.exists()
@@ -101,8 +117,9 @@ def toggle_task_completion(request, task_id):
     return redirect("goal_list")
 
 
+@login_required
 def create_execution_log(request, task_id):
-    task = get_object_or_404(Task, id=task_id)
+    task = get_user_task(request, task_id)
 
     if request.method == "POST":
         form = ExecutionLogForm(request.POST)
@@ -128,6 +145,7 @@ def create_execution_log(request, task_id):
     )
 
 
+@login_required
 def generate_ai_plan(request):
     error = None
 
@@ -143,7 +161,7 @@ def generate_ai_plan(request):
                 error = str(exc)
             else:
                 create_goal_from_plan(
-                    user=get_demo_user(),
+                    user=request.user,
                     plan=plan,
                     goal_text=goal_text,
                     deadline=date.today() + timedelta(days=AI_PLAN_DEFAULT_DAYS),

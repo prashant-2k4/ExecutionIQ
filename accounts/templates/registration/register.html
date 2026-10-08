@@ -1,0 +1,28 @@
+{% extends "core/base.html" %}
+
+{% block title %}Register - ExecutionIQ{% endblock %}
+
+{% block content %}
+    <div class="page-header">
+        <h1>Create an Account</h1>
+    </div>
+
+    <form method="post" class="form-card">
+        {% csrf_token %}
+
+        {{ form.non_field_errors }}
+
+        {% for field in form %}
+            <div class="form-field">
+                {{ field.label_tag }}
+                {{ field }}
+                {% if field.help_text %}<small>{{ field.help_text|safe }}</small>{% endif %}
+                {{ field.errors }}
+            </div>
+        {% endfor %}
+
+        <button type="submit" class="btn">Register</button>
+    </form>
+
+    <p>Already have an account? <a href="{% url 'login' %}">Log in</a>.</p>
+{% endblock %}

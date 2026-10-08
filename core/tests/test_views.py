@@ -11,7 +11,8 @@ from core.services.ai_planner import AIPlannerError, parse_plan
 
 class GoalTaskViewTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("demo")
+        self.user = User.objects.create_user("alice", password="pass-12345")
+        self.client.force_login(self.user)
         self.goal = Goal.objects.create(
             user=self.user,
             title="Learn Django",
@@ -34,7 +35,7 @@ class GoalTaskViewTests(TestCase):
             "status": "ACTIVE",
         })
         self.assertRedirects(response, reverse("goal_list"))
-        self.assertTrue(Goal.objects.filter(title="Learn React").exists())
+        self.assertEqual(Goal.objects.get(title="Learn React").user, self.user)
 
     def test_create_goal_rejects_past_deadline_and_bad_hours(self):
         response = self.client.post(reverse("create_goal"), {
@@ -105,12 +106,17 @@ class GoalTaskViewTests(TestCase):
 class AIPlanViewTests(TestCase):
     PLAN = '{"goal": "Learn Python", "tasks": [{"title": "Basics", "estimated_hours": 10, "priority": "HIGH"}]}'
 
+    def setUp(self):
+        self.user = User.objects.create_user("alice")
+        self.client.force_login(self.user)
+
     def test_successful_plan_creates_goal_and_tasks(self):
         with patch("core.views.generate_goal_plan", return_value=parse_plan(self.PLAN)):
             response = self.client.post(reverse("ai_plan"), {"goal_text": "I want to learn Python"})
 
         self.assertRedirects(response, reverse("goal_list"))
         goal = Goal.objects.get()
+        self.assertEqual(goal.user, self.user)
         self.assertEqual(goal.title, "Learn Python")
         self.assertEqual(goal.tasks.count(), 1)
 

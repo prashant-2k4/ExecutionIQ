@@ -12,8 +12,18 @@
     <nav class="navbar">
         <a href="{% url 'goal_list' %}" class="logo">ExecutionIQ</a>
         <div class="nav-links">
-            <a href="{% url 'goal_list' %}">Goals</a>
-            <a href="{% url 'ai_plan' %}">AI Planner</a>
+            {% if user.is_authenticated %}
+                <a href="{% url 'goal_list' %}">Goals</a>
+                <a href="{% url 'ai_plan' %}">AI Planner</a>
+                <span>{{ user.username }}</span>
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="link-button">Log Out</button>
+                </form>
+            {% else %}
+                <a href="{% url 'login' %}">Log In</a>
+                <a href="{% url 'register' %}">Register</a>
+            {% endif %}
         </div>
     </nav>
 
