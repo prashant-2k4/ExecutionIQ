@@ -1,6 +1,5 @@
-from datetime import date
-
 from django import forms
+from django.utils import timezone
 
 from .models import ExecutionLog, Goal, Task
 
@@ -19,6 +18,7 @@ class GoalForm(forms.ModelForm):
             "description",
             "deadline",
             "daily_available_hours",
+            "available_days_per_week",
             "priority",
             "status",
         ]
@@ -27,7 +27,7 @@ class GoalForm(forms.ModelForm):
     def clean_deadline(self):
         deadline = self.cleaned_data["deadline"]
         # Only new goals must have a future deadline; existing goals may be overdue.
-        if self.instance.pk is None and deadline < date.today():
+        if self.instance.pk is None and deadline < timezone.localdate():
             raise forms.ValidationError("The deadline cannot be in the past.")
         return deadline
 
@@ -72,11 +72,11 @@ class ExecutionLogForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if not self.is_bound:
-            self.fields["date"].initial = date.today()
+            self.fields["date"].initial = timezone.localdate
 
     def clean_date(self):
         log_date = self.cleaned_data["date"]
-        if log_date > date.today():
+        if log_date > timezone.localdate():
             raise forms.ValidationError("You cannot log work for a future date.")
         return log_date
 

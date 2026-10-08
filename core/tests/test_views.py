@@ -31,6 +31,7 @@ class GoalTaskViewTests(TestCase):
             "title": "Learn React",
             "deadline": (date.today() + timedelta(days=20)).isoformat(),
             "daily_available_hours": "1.5",
+            "available_days_per_week": 5,
             "priority": "HIGH",
             "status": "ACTIVE",
         })
@@ -49,6 +50,20 @@ class GoalTaskViewTests(TestCase):
         self.assertContains(response, "cannot be in the past")
         self.assertContains(response, "between 0 and 24")
         self.assertFalse(Goal.objects.filter(title="Too late").exists())
+
+    def test_create_goal_rejects_invalid_days_per_week(self):
+        for days in (0, 8):
+            with self.subTest(days=days):
+                response = self.client.post(reverse("create_goal"), {
+                    "title": "Bad week",
+                    "deadline": (date.today() + timedelta(days=20)).isoformat(),
+                    "daily_available_hours": "2",
+                    "available_days_per_week": days,
+                    "priority": "HIGH",
+                    "status": "ACTIVE",
+                })
+                self.assertEqual(response.status_code, 200)
+                self.assertFalse(Goal.objects.filter(title="Bad week").exists())
 
     def test_create_task_for_missing_goal_returns_404(self):
         response = self.client.get(reverse("create_task", args=[9999]))

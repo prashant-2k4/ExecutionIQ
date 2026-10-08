@@ -122,7 +122,7 @@ body {
 
 .execution-metrics {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
     gap: 12px;
     margin: 20px 0;
 }
@@ -274,4 +274,66 @@ body {
     .navbar {
         padding: 18px 20px;
     }
+}
+
+
+/* Execution Engine metrics */
+
+.metric small {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.text-danger,
+.metric small.text-danger {
+    color: #b91c1c;
+}
+
+.risk {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+}
+
+.risk-low {
+    background: #dcfce7;
+    color: #14532d;
+}
+
+.risk-medium {
+    background: #fef3c7;
+    color: #78350f;
+}
+
+.risk-high {
+    background: #fee2e2;
+    color: #7f1d1d;
+}
+
+.factor-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 10px;
+}
+
+.factor {
+    padding: 8px 12px;
+    border-left: 4px solid #93c5fd;
+    background: #f8fafc;
+    margin-bottom: 6px;
+    font-size: 14px;
+}
+
+.factor-positive {
+    border-color: #22c55e;
+}
+
+.factor-warning {
+    border-color: #f59e0b;
+}
+
+.factor-critical {
+    border-color: #ef4444;
 }

@@ -1,4 +1,7 @@
+from decimal import Decimal
+
 from django.contrib.auth.models import User
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
@@ -28,6 +31,12 @@ class Goal(models.Model):
     daily_available_hours = models.DecimalField(
         max_digits=4,
         decimal_places=2
+    )
+
+    available_days_per_week = models.PositiveSmallIntegerField(
+        default=7,
+        validators=[MinValueValidator(1), MaxValueValidator(7)],
+        help_text="How many days per week you can work on this goal.",
     )
 
     priority = models.CharField(
@@ -74,12 +83,6 @@ class Task(models.Model):
         decimal_places=2
     )
 
-    actual_hours = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        default=0
-    )
-
     status = models.CharField(
         max_length=15,
         choices=Status.choices,
@@ -103,6 +106,12 @@ class Task(models.Model):
     @property
     def is_completed(self):
         return self.status == self.Status.COMPLETED
+
+    @property
+    def logged_hours(self):
+        # Time spent is derived from ExecutionLog, the single source of truth.
+        minutes = sum(log.duration_minutes for log in self.execution_logs.all())
+        return Decimal(minutes) / 60
 
     def save(self, *args, **kwargs):
         # Keep completed_at consistent with status, whichever path changed it.

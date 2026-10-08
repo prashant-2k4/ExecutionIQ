@@ -22,36 +22,90 @@
 
             <div class="goal-info">
                 <span>📅 Deadline: {{ goal.deadline }}</span>
-                <span>⏱ {{ goal.daily_available_hours }} hrs/day</span>
+                <span>⏱ {{ goal.daily_available_hours }} hrs/day · {{ goal.available_days_per_week }} days/week</span>
                 <span>Priority: {{ goal.get_priority_display }}</span>
             </div>
 
+            {% with m=goal.execution_metrics %}
             <div class="execution-metrics">
                 <div class="metric">
                     <span>Progress</span>
-                    <strong>{{ goal.execution_metrics.progress_percentage|floatformat:0 }}%</strong>
+                    <strong>{{ m.progress_percentage|floatformat:0 }}%</strong>
+                    <small>expected {{ m.expected_progress_percentage|floatformat:0 }}%</small>
                 </div>
 
                 <div class="metric">
                     <span>Remaining Work</span>
-                    <strong>{{ goal.execution_metrics.remaining_workload|floatformat:1 }} hrs</strong>
+                    <strong>{{ m.remaining_workload|floatformat:1 }} hrs</strong>
+                    <small>of {{ m.total_workload|floatformat:1 }} hrs</small>
+                </div>
+
+                <div class="metric">
+                    <span>Days Remaining</span>
+                    <strong>{{ m.days_remaining }}</strong>
+                    <small>{{ m.working_days_remaining|floatformat:1 }} working days</small>
                 </div>
 
                 <div class="metric">
                     <span>Required Daily</span>
-                    <strong>{{ goal.execution_metrics.required_daily_hours|floatformat:1 }} hrs</strong>
+                    <strong>
+                        {% if m.required_daily_hours is None %}—{% else %}{{ m.required_daily_hours|floatformat:1 }} hrs{% endif %}
+                    </strong>
+                    <small>planned {{ goal.daily_available_hours|floatformat:1 }} hrs</small>
+                </div>
+
+                <div class="metric">
+                    <span>Execution Rate</span>
+                    <strong>{{ m.execution_rate|floatformat:1 }} hrs/day</strong>
+                    <small>logged {{ m.logged_hours|floatformat:1 }} hrs · streak {{ m.current_streak }}</small>
                 </div>
 
                 <div class="metric">
                     <span>Feasibility</span>
-                    <strong>{{ goal.execution_metrics.feasibility_score|floatformat:0 }}/100</strong>
+                    <strong>
+                        {% if m.feasibility_score is None %}—{% else %}{{ m.feasibility_score|floatformat:0 }}/100{% endif %}
+                    </strong>
                 </div>
 
                 <div class="metric">
-                    <span>Risk</span>
-                    <strong>{{ goal.execution_metrics.risk }}</strong>
+                    <span>Completion Probability Index</span>
+                    <strong>
+                        {% if m.completion_probability_index is None %}—{% else %}{{ m.completion_probability_index|floatformat:0 }}/100{% endif %}
+                    </strong>
+                </div>
+
+                <div class="metric">
+                    <span>Execution Risk</span>
+                    {% if m.risk %}
+                        <strong class="risk risk-{{ m.risk|lower }}">{{ m.risk }}</strong>
+                    {% else %}
+                        <strong>—</strong>
+                    {% endif %}
+                </div>
+
+                <div class="metric">
+                    <span>Est. Completion</span>
+                    <strong>{{ m.estimated_completion_date|date:"d M Y"|default:"—" }}</strong>
+                    {% if m.finishes_before_deadline is False %}
+                        <small class="text-danger">after deadline</small>
+                    {% elif m.finishes_before_deadline %}
+                        <small>before deadline</small>
+                    {% endif %}
+                </div>
+
+                <div class="metric">
+                    <span>Schedule Variance</span>
+                    <strong>{{ m.schedule_variance|floatformat:0 }} pts</strong>
+                    <small>vs linear plan</small>
                 </div>
             </div>
+
+            <ul class="factor-list">
+                {% for factor in m.factors %}
+                    <li class="factor factor-{{ factor.severity }}">{{ factor.message }}</li>
+                {% endfor %}
+            </ul>
+            {% endwith %}
 
             <h3 class="section-title">Tasks</h3>
 
@@ -65,7 +119,8 @@
                             <strong>{{ task.title }}</strong>
 
                             <span class="task-meta">
-                                {{ task.estimated_hours }} hours ·
+                                {{ task.estimated_hours }} hrs estimated ·
+                                {{ task.logged_hours|floatformat:1 }} hrs logged ·
                                 {{ task.get_status_display }} ·
                                 {{ task.get_priority_display }}
                             </span>

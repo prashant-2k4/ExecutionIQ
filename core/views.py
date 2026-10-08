@@ -1,8 +1,9 @@
-from datetime import date, timedelta
+from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from core.services.ai_planner import AIPlannerError, generate_goal_plan
@@ -35,7 +36,7 @@ def get_user_task(request, task_id):
 def goal_list(request):
     goals = (
         Goal.objects.filter(user=request.user)
-        .prefetch_related("tasks")
+        .prefetch_related("tasks__execution_logs")
         .order_by("deadline", "id")
     )
 
@@ -164,7 +165,7 @@ def generate_ai_plan(request):
                     user=request.user,
                     plan=plan,
                     goal_text=goal_text,
-                    deadline=date.today() + timedelta(days=AI_PLAN_DEFAULT_DAYS),
+                    deadline=timezone.localdate() + timedelta(days=AI_PLAN_DEFAULT_DAYS),
                     daily_available_hours=AI_PLAN_DEFAULT_DAILY_HOURS,
                 )
                 messages.success(
