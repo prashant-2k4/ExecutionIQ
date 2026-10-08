@@ -1,19 +1,13 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Log Work</title>
-</head>
-<body>
+{% extends "core/base.html" %}
 
-    <h1>Log Work</h1>
+{% block title %}Log Work - ExecutionIQ{% endblock %}
 
-    <form method="post">
-        {% csrf_token %}
+{% block content %}
+    <div class="page-header">
+        <h1>Log Work</h1>
+    </div>
 
-        {{ form.as_p }}
+    <p class="goal-description">Task: {{ task.title }} ({{ task.goal.title }})</p>
 
-        <button type="submit">Save Work</button>
-    </form>
-
-</body>
-</html>
+    {% include "core/_form.html" with submit_label="Save Work" %}
+{% endblock %}

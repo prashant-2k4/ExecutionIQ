@@ -1,19 +1,17 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Create Task</title>
-</head>
-<body>
+{% extends "core/base.html" %}
 
-    <h1>Create a Task</h1>
+{% block title %}{% if task %}Edit{% else %}Create{% endif %} Task - ExecutionIQ{% endblock %}
 
-    <form method="post">
-        {% csrf_token %}
+{% block content %}
+    <div class="page-header">
+        <h1>{% if task %}Edit Task{% else %}Add a Task{% endif %}</h1>
+    </div>
 
-        {{ form.as_p }}
+    <p class="goal-description">Goal: {{ goal.title }}</p>
 
-        <button type="submit">Create Task</button>
-    </form>
-
-</body>
-</html>
+    {% if task %}
+        {% include "core/_form.html" with submit_label="Save Task" %}
+    {% else %}
+        {% include "core/_form.html" with submit_label="Create Task" %}
+    {% endif %}
+{% endblock %}

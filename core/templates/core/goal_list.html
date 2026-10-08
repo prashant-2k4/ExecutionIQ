@@ -1,131 +1,119 @@
-{% load static %}
+{% extends "core/base.html" %}
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>ExecutionIQ</title>
-    <link rel="stylesheet" href="{% static 'core/style.css' %}">
-</head>
+{% block content %}
 
-<body>
-
-    <nav class="navbar">
-        <div class="logo">ExecutionIQ</div>
-        <div>Execution Intelligence</div>
-    </nav>
-
-    <main class="container">
-
-        <div class="page-header">
-            <h1>My Goals</h1>
-            <a href="/goals/create/" class="btn">+ Create Goal</a>
+    <div class="page-header">
+        <h1>My Goals</h1>
+        <div class="actions">
+            <a href="{% url 'ai_plan' %}" class="btn">AI Planner</a>
+            <a href="{% url 'create_goal' %}" class="btn btn-secondary">+ Create Goal</a>
         </div>
+    </div>
 
-        {% for goal in goals %}
+    {% for goal in goals %}
 
-            <div class="goal-card">
+        <div class="goal-card">
 
-                <h2>{{ goal.title }}</h2>
+            <h2>{{ goal.title }}</h2>
 
-                <p class="goal-description">
-                    {{ goal.description }}
-                </p>
+            <p class="goal-description">
+                {{ goal.description }}
+            </p>
 
-                <div class="goal-info">
-                    <span>📅 Deadline: {{ goal.deadline }}</span>
-                    <span>⏱ {{ goal.daily_available_hours }} hrs/day</span>
-                    <span>Priority: {{ goal.priority }}</span>
+            <div class="goal-info">
+                <span>📅 Deadline: {{ goal.deadline }}</span>
+                <span>⏱ {{ goal.daily_available_hours }} hrs/day</span>
+                <span>Priority: {{ goal.get_priority_display }}</span>
+            </div>
+
+            <div class="execution-metrics">
+                <div class="metric">
+                    <span>Progress</span>
+                    <strong>{{ goal.execution_metrics.progress_percentage|floatformat:0 }}%</strong>
                 </div>
 
-                <div class="execution-metrics">
-    <div class="metric">
-        <span>Progress</span>
-        <strong>{{ goal.execution_metrics.progress_percentage|floatformat:0 }}%</strong>
-    </div>
+                <div class="metric">
+                    <span>Remaining Work</span>
+                    <strong>{{ goal.execution_metrics.remaining_workload|floatformat:1 }} hrs</strong>
+                </div>
 
-    <div class="metric">
-        <span>Remaining Work</span>
-        <strong>{{ goal.execution_metrics.remaining_workload|floatformat:1 }} hrs</strong>
-    </div>
+                <div class="metric">
+                    <span>Required Daily</span>
+                    <strong>{{ goal.execution_metrics.required_daily_hours|floatformat:1 }} hrs</strong>
+                </div>
 
-    <div class="metric">
-        <span>Required Daily</span>
-        <strong>{{ goal.execution_metrics.required_daily_hours|floatformat:1 }} hrs</strong>
-    </div>
+                <div class="metric">
+                    <span>Feasibility</span>
+                    <strong>{{ goal.execution_metrics.feasibility_score|floatformat:0 }}/100</strong>
+                </div>
 
-    <div class="metric">
-        <span>Feasibility</span>
-        <strong>{{ goal.execution_metrics.feasibility_score|floatformat:0 }}/100</strong>
-    </div>
-
-    <div class="metric">
-        <span>Risk</span>
-        <strong>{{ goal.execution_metrics.risk }}</strong>
-    </div>
-</div>
-
-                <h3 class="section-title">Tasks</h3>
-
-                <ul class="task-list">
-
-                    {% for task in goal.tasks.all %}
-
-                        <li class="task">
-
-                            <div class="task-info">
-                                <strong>{{ task.title }}</strong>
-
-                                <span class="task-meta">
-                                    {{ task.estimated_hours }} hours ·
-                                    {{ task.status }} ·
-                                    {{ task.priority }}
-                                </span>
-                            </div>
-
-                            <a
-                                href="/tasks/{{ task.id }}/log/"
-                                class="btn"
-                            >
-                                Log Work
-                            </a>
-
-                        </li>
-
-                    {% empty %}
-
-                        <li class="empty">
-                            No tasks yet.
-                        </li>
-
-                    {% endfor %}
-
-                </ul>
-
-                <br>
-
-                <a
-                    href="/goals/{{ goal.id }}/tasks/create/"
-                    class="btn"
-                >
-                    + Add Task
-                </a>
-
+                <div class="metric">
+                    <span>Risk</span>
+                    <strong>{{ goal.execution_metrics.risk }}</strong>
+                </div>
             </div>
 
-        {% empty %}
+            <h3 class="section-title">Tasks</h3>
 
-            <div class="goal-card empty">
-                <h2>No goals yet</h2>
-                <p>Create your first goal to get started.</p>
+            <ul class="task-list">
 
-                <a href="/goals/create/" class="btn">
-                    Create Goal
-                </a>
-            </div>
+                {% for task in goal.tasks.all %}
 
-        {% endfor %}
+                    <li class="task{% if task.is_completed %} task-done{% endif %}">
 
-    </main>
+                        <div class="task-info">
+                            <strong>{{ task.title }}</strong>
 
-</body>
-</html>
+                            <span class="task-meta">
+                                {{ task.estimated_hours }} hours ·
+                                {{ task.get_status_display }} ·
+                                {{ task.get_priority_display }}
+                            </span>
+                        </div>
+
+                        <div class="actions">
+                            {% if not task.is_completed %}
+                                <a href="{% url 'log_work' task.id %}" class="btn">Log Work</a>
+                            {% endif %}
+
+                            <form method="post" action="{% url 'toggle_task' task.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-secondary">
+                                    {% if task.is_completed %}Reopen{% else %}Mark Complete{% endif %}
+                                </button>
+                            </form>
+
+                            <a href="{% url 'edit_task' task.id %}" class="btn btn-secondary">Edit</a>
+                        </div>
+
+                    </li>
+
+                {% empty %}
+
+                    <li class="empty">
+                        No tasks yet.
+                    </li>
+
+                {% endfor %}
+
+            </ul>
+
+            <br>
+
+            <a href="{% url 'create_task' goal.id %}" class="btn">+ Add Task</a>
+
+        </div>
+
+    {% empty %}
+
+        <div class="goal-card empty">
+            <h2>No goals yet</h2>
+            <p>Describe a goal to the AI Planner, or create one manually.</p>
+
+            <a href="{% url 'ai_plan' %}" class="btn">AI Planner</a>
+            <a href="{% url 'create_goal' %}" class="btn btn-secondary">Create Goal</a>
+        </div>
+
+    {% endfor %}
+
+{% endblock %}

@@ -1,98 +1,110 @@
-from django.shortcuts import render, redirect, get_object_or_404
-# Create your views here.
-from .models import Goal, Task, ExecutionLog
-from django import forms
-from core.services.execution_engine import calculate_execution_metrics
-from core.services.ai_planner import generate_goal_plan
 from datetime import date, timedelta
-from django.contrib.auth.models import User
 
-def home(request):
-    return render(request, 'core/home.html')
+from django.contrib import messages
+from django.contrib.auth.models import User
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
+
+from core.services.ai_planner import AIPlannerError, generate_goal_plan
+from core.services.execution_engine import calculate_execution_metrics
+from core.services.goal_builder import create_goal_from_plan
+
+from .forms import AIPlanForm, ExecutionLogForm, GoalForm, TaskForm
+from .models import Goal, Task
+
+# Temporary planner defaults until natural-language extraction and clarifying
+# questions replace them (roadmap P3).
+AI_PLAN_DEFAULT_DAYS = 30
+AI_PLAN_DEFAULT_DAILY_HOURS = 2
+
+
+def get_demo_user():
+    # Temporary owner for all records until authentication lands (roadmap P1).
+    user, _ = User.objects.get_or_create(username="demo")
+    return user
 
 
 def goal_list(request):
-    goals = Goal.objects.all()
+    goals = Goal.objects.prefetch_related("tasks").order_by("deadline", "id")
 
     for goal in goals:
         goal.execution_metrics = calculate_execution_metrics(goal)
 
-    return render(
-        request,
-        "core/goal_list.html",
-        {"goals": goals},
-    )
+    return render(request, "core/goal_list.html", {"goals": goals})
 
-class GoalForm(forms.ModelForm):
-    class Meta:
-        model = Goal
-        fields = [
-            'title',
-            'description',
-            'deadline',
-            'daily_available_hours',
-            'priority',
-            'status',
-        ]
-
-class TaskForm(forms.ModelForm):
-    class Meta:
-        model = Task
-        fields = [
-            'title',
-            'description',
-            'estimated_hours',
-            'actual_hours',
-            'status',
-            'priority',
-            'due_date',
-        ]
-
-class ExecutionLogForm(forms.ModelForm):
-    class Meta:
-        model = ExecutionLog
-        fields = [
-            'date',
-            'duration_minutes',
-            'notes',
-        ]
 
 def create_goal(request):
-    if request.method == 'POST':
+    if request.method == "POST":
         form = GoalForm(request.POST)
 
         if form.is_valid():
             goal = form.save(commit=False)
-            goal.user = request.user
+            goal.user = get_demo_user()
             goal.save()
-
-            return redirect('/')
+            messages.success(request, "Goal created.")
+            return redirect("goal_list")
     else:
         form = GoalForm()
 
-    return render(request, 'core/goal_form.html', {'form': form})
+    return render(request, "core/goal_form.html", {"form": form})
+
 
 def create_task(request, goal_id):
-    goal = Goal.objects.get(id=goal_id)
+    goal = get_object_or_404(Goal, id=goal_id)
 
-    if request.method == 'POST':
+    if request.method == "POST":
         form = TaskForm(request.POST)
 
         if form.is_valid():
             task = form.save(commit=False)
             task.goal = goal
             task.save()
-
-            return redirect('/')
+            messages.success(request, "Task added.")
+            return redirect("goal_list")
     else:
         form = TaskForm()
 
-    return render(request, 'core/task_form.html', {'form': form, 'goal': goal})
+    return render(request, "core/task_form.html", {"form": form, "goal": goal})
+
+
+def edit_task(request, task_id):
+    task = get_object_or_404(Task, id=task_id)
+
+    if request.method == "POST":
+        form = TaskForm(request.POST, instance=task)
+
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Task updated.")
+            return redirect("goal_list")
+    else:
+        form = TaskForm(instance=task)
+
+    return render(
+        request,
+        "core/task_form.html",
+        {"form": form, "goal": task.goal, "task": task},
+    )
+
+
+@require_POST
+def toggle_task_completion(request, task_id):
+    task = get_object_or_404(Task, id=task_id)
+
+    if task.is_completed:
+        has_logs = task.execution_logs.exists()
+        task.status = Task.Status.IN_PROGRESS if has_logs else Task.Status.TODO
+    else:
+        task.status = Task.Status.COMPLETED
+
+    task.save()
+    return redirect("goal_list")
+
 
 def create_execution_log(request, task_id):
     task = get_object_or_404(Task, id=task_id)
 
-    if request.method == 'POST':
+    if request.method == "POST":
         form = ExecutionLogForm(request.POST)
 
         if form.is_valid():
@@ -100,68 +112,50 @@ def create_execution_log(request, task_id):
             log.task = task
             log.save()
 
-            return redirect('/')
+            if task.status == Task.Status.TODO:
+                task.status = Task.Status.IN_PROGRESS
+                task.save()
 
+            messages.success(request, "Work logged.")
+            return redirect("goal_list")
     else:
         form = ExecutionLogForm()
 
     return render(
         request,
-        'core/execution_log_form.html',
-        {'form': form, 'task': task}
+        "core/execution_log_form.html",
+        {"form": form, "task": task},
     )
+
 
 def generate_ai_plan(request):
-    if request.method == "POST":
-        goal_text = request.POST.get("goal_text", "").strip()
+    error = None
 
-        if goal_text:
+    if request.method == "POST":
+        form = AIPlanForm(request.POST)
+
+        if form.is_valid():
+            goal_text = form.cleaned_data["goal_text"]
+
             try:
                 plan = generate_goal_plan(goal_text)
-
-                user, _ = User.objects.get_or_create(username="demo")
-
-                goal = Goal.objects.create(
-                    user=user,
-                    title=plan.get("goal", goal_text[:200]),
-                    description=goal_text,
-                    deadline=date.today() + timedelta(days=30),
-                    daily_available_hours=2,
+            except AIPlannerError as exc:
+                error = str(exc)
+            else:
+                create_goal_from_plan(
+                    user=get_demo_user(),
+                    plan=plan,
+                    goal_text=goal_text,
+                    deadline=date.today() + timedelta(days=AI_PLAN_DEFAULT_DAYS),
+                    daily_available_hours=AI_PLAN_DEFAULT_DAILY_HOURS,
                 )
-
-                for task_data in plan["tasks"]:
-                    priority = task_data["priority"].upper()
-
-                    Task.objects.create(
-                        goal=goal,
-                        title=task_data["title"],
-                        estimated_hours=task_data["estimated_hours"],
-                        priority=priority,
-                    )
-
-                return redirect("/")
-
-            except Exception as e:
-                print("AI PLANNER ERROR:", repr(e))
-                error = f"AI Planner Error: {e}"
-
-                return render(
+                messages.success(
                     request,
-                    "core/ai_plan.html",
-                    {
-                        "goal_text": goal_text,
-                        "error": error,
-                    },
+                    f"AI plan created with {len(plan.tasks)} tasks "
+                    f"({plan.total_estimated_hours} estimated hours).",
                 )
+                return redirect("goal_list")
+    else:
+        form = AIPlanForm()
 
-    return render(request, "core/ai_plan.html")
-
-    return render(
-        request,
-        "core/ai_plan.html",
-        {
-            "goal_text": goal_text,
-            "plan": plan,
-            "error": error,
-        },
-    )
+    return render(request, "core/ai_plan.html", {"form": form, "error": error})

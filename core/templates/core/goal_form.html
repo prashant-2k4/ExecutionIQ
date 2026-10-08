@@ -1,19 +1,11 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Create Goal</title>
-</head>
-<body>
+{% extends "core/base.html" %}
 
-    <h1>Create a Goal</h1>
+{% block title %}Create Goal - ExecutionIQ{% endblock %}
 
-    <form method="post">
-        {% csrf_token %}
+{% block content %}
+    <div class="page-header">
+        <h1>Create a Goal</h1>
+    </div>
 
-        {{ form.as_p }}
-
-        <button type="submit">Create Goal</button>
-    </form>
-
-</body>
-</html>
+    {% include "core/_form.html" with submit_label="Create Goal" %}
+{% endblock %}
