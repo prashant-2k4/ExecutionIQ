@@ -1,17 +1,23 @@
 <form method="post" class="form-card">
     {% csrf_token %}
 
-    {{ form.non_field_errors }}
+    {% if form.non_field_errors %}
+        <div class="alert alert-error">{{ form.non_field_errors }}</div>
+    {% endif %}
 
-    {% for field in form %}
-        <div class="form-field">
-            {{ field.label_tag }}
-            {{ field }}
-            {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
-            {{ field.errors }}
-        </div>
-    {% endfor %}
+    <div class="form-grid">
+        {% for field in form %}
+            <div class="form-field{% if field.errors %} has-error{% endif %}{% if field.name == 'description' or field.name == 'title' or field.name == 'notes' %} form-field-wide{% endif %}">
+                {{ field.label_tag }}
+                {{ field }}
+                {% if field.help_text %}<small class="help">{{ field.help_text }}</small>{% endif %}
+                {{ field.errors }}
+            </div>
+        {% endfor %}
+    </div>
 
-    <button type="submit" class="btn">{{ submit_label }}</button>
-    <a href="{% url 'goal_list' %}" class="btn btn-secondary">Cancel</a>
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
+        <a href="{% url 'goal_list' %}" class="btn btn-ghost">Cancel</a>
+    </div>
 </form>

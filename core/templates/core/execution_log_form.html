@@ -3,11 +3,16 @@
 {% block title %}Log Work - ExecutionIQ{% endblock %}
 
 {% block content %}
-    <div class="page-header">
-        <h1>Log Work</h1>
-    </div>
-
-    <p class="goal-description">Task: {{ task.title }} ({{ task.goal.title }})</p>
+    <header class="page-header">
+        <div>
+            <p class="eyebrow">{{ task.goal.title }}</p>
+            <h1>Log Work</h1>
+            <p class="page-subtitle">
+                Logging time on <strong>{{ task.title }}</strong> updates your execution rate,
+                streak, feasibility and completion forecast.
+            </p>
+        </div>
+    </header>
 
     {% include "core/_form.html" with submit_label="Save Work" %}
 {% endblock %}

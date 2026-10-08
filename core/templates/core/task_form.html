@@ -1,13 +1,15 @@
 {% extends "core/base.html" %}
 
-{% block title %}{% if task %}Edit{% else %}Create{% endif %} Task - ExecutionIQ{% endblock %}
+{% block title %}{% if task %}Edit{% else %}Add{% endif %} Task - ExecutionIQ{% endblock %}
 
 {% block content %}
-    <div class="page-header">
-        <h1>{% if task %}Edit Task{% else %}Add a Task{% endif %}</h1>
-    </div>
-
-    <p class="goal-description">Goal: {{ goal.title }}</p>
+    <header class="page-header">
+        <div>
+            <p class="eyebrow">{{ goal.title }}</p>
+            <h1>{% if task %}Edit Task{% else %}Add a Task{% endif %}</h1>
+            <p class="page-subtitle">Estimated hours feed the Execution Engine's workload calculation.</p>
+        </div>
+    </header>
 
     {% if task %}
         {% include "core/_form.html" with submit_label="Save Task" %}

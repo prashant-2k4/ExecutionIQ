@@ -1,173 +1,242 @@
 {% extends "core/base.html" %}
 
+{% block title %}Execution Dashboard - ExecutionIQ{% endblock %}
+
 {% block content %}
 
-    <div class="page-header">
-        <h1>My Goals</h1>
+    <header class="page-header">
+        <div>
+            <p class="eyebrow">Execution Dashboard</p>
+            <h1>My Goals</h1>
+            <p class="page-subtitle">
+                {{ goals|length }} goal{{ goals|length|pluralize }} tracked ·
+                feasibility, risk and completion forecasts are recalculated from your logged work.
+            </p>
+        </div>
         <div class="actions">
-            <a href="{% url 'ai_plan' %}" class="btn">AI Planner</a>
+            <a href="{% url 'ai_plan' %}" class="btn btn-primary">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>
+                AI Goal Planner
+            </a>
             <a href="{% url 'create_goal' %}" class="btn btn-secondary">+ Create Goal</a>
         </div>
-    </div>
+    </header>
 
     {% for goal in goals %}
+        {% with m=goal.execution_metrics %}
 
-        <div class="goal-card">
+        <section class="goal-card">
 
-            <h2>{{ goal.title }}</h2>
+            <div class="goal-head">
+                <div class="goal-head-text">
+                    <h2>{{ goal.title }}</h2>
+                    {% if goal.description and goal.description != goal.title %}
+                        <p class="goal-description">{{ goal.description }}</p>
+                    {% endif %}
+                    <div class="chips">
+                        <span class="chip">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                            Deadline {{ goal.deadline|date:"d M Y" }}
+                        </span>
+                        <span class="chip">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                            {{ goal.daily_available_hours|floatformat:"-1" }} h/day · {{ goal.available_days_per_week }} days/week
+                        </span>
+                        <span class="badge priority-{{ goal.priority|lower }}">{{ goal.get_priority_display }} priority</span>
+                        <span class="badge status-{{ goal.status|lower }}">{{ goal.get_status_display }}</span>
+                    </div>
+                </div>
 
-            <p class="goal-description">
-                {{ goal.description }}
-            </p>
-
-            <div class="goal-info">
-                <span>📅 Deadline: {{ goal.deadline }}</span>
-                <span>⏱ {{ goal.daily_available_hours }} hrs/day · {{ goal.available_days_per_week }} days/week</span>
-                <span>Priority: {{ goal.get_priority_display }}</span>
+                <div class="goal-side">
+                    <div class="risk-panel risk-panel-{{ m.risk|default:'none'|lower }}">
+                        <span class="risk-panel-label">Execution Risk</span>
+                        <span class="risk-panel-value">{{ m.risk|default:"—" }}</span>
+                    </div>
+                    <a href="{% url 'delete_goal' goal.id %}" class="btn btn-danger-ghost btn-sm" title="Delete this goal">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>
+                        Delete goal
+                    </a>
+                </div>
             </div>
 
-            {% with m=goal.execution_metrics %}
-            <div class="execution-metrics">
-                <div class="metric">
-                    <span>Progress</span>
-                    <strong>{{ m.progress_percentage|floatformat:0 }}%</strong>
-                    <small>expected {{ m.expected_progress_percentage|floatformat:0 }}%</small>
+            <div class="progress-block">
+                <div class="progress-labels">
+                    <span><strong>{{ m.progress_percentage|floatformat:0 }}%</strong> complete</span>
+                    <span class="muted">expected by now: {{ m.expected_progress_percentage|floatformat:0 }}%</span>
+                </div>
+                <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ m.progress_percentage|floatformat:'0u' }}">
+                    <div class="progress-fill" style="width: {{ m.progress_percentage|floatformat:'1u' }}%"></div>
+                    <div class="progress-marker" style="left: {{ m.expected_progress_percentage|floatformat:'1u' }}%" title="Expected progress on a linear plan"></div>
+                </div>
+            </div>
+
+            <div class="kpi-grid">
+
+                <div class="kpi">
+                    <span class="kpi-label">Progress</span>
+                    <span class="kpi-value">{{ m.progress_percentage|floatformat:0 }}<small>%</small></span>
+                    <span class="kpi-sub">{{ m.completed_workload|floatformat:1 }} of {{ m.total_workload|floatformat:1 }} h done</span>
                 </div>
 
-                <div class="metric">
-                    <span>Remaining Work</span>
-                    <strong>{{ m.remaining_workload|floatformat:1 }} hrs</strong>
-                    <small>of {{ m.total_workload|floatformat:1 }} hrs</small>
+                <div class="kpi">
+                    <span class="kpi-label">Remaining Work</span>
+                    <span class="kpi-value">{{ m.remaining_workload|floatformat:1 }}<small>h</small></span>
+                    <span class="kpi-sub">{{ m.days_remaining }} days left · {{ m.working_days_remaining|floatformat:1 }} working</span>
                 </div>
 
-                <div class="metric">
-                    <span>Days Remaining</span>
-                    <strong>{{ m.days_remaining }}</strong>
-                    <small>{{ m.working_days_remaining|floatformat:1 }} working days</small>
-                </div>
-
-                <div class="metric">
-                    <span>Required Daily</span>
-                    <strong>
-                        {% if m.required_daily_hours is None %}—{% else %}{{ m.required_daily_hours|floatformat:1 }} hrs{% endif %}
-                    </strong>
-                    <small>planned {{ goal.daily_available_hours|floatformat:1 }} hrs</small>
-                </div>
-
-                <div class="metric">
-                    <span>Execution Rate</span>
-                    <strong>{{ m.execution_rate|floatformat:1 }} hrs/day</strong>
-                    <small>logged {{ m.logged_hours|floatformat:1 }} hrs · streak {{ m.current_streak }}</small>
-                </div>
-
-                <div class="metric">
-                    <span>Feasibility</span>
-                    <strong>
-                        {% if m.feasibility_score is None %}—{% else %}{{ m.feasibility_score|floatformat:0 }}/100{% endif %}
-                    </strong>
-                </div>
-
-                <div class="metric">
-                    <span>Completion Probability Index</span>
-                    <strong>
-                        {% if m.completion_probability_index is None %}—{% else %}{{ m.completion_probability_index|floatformat:0 }}/100{% endif %}
-                    </strong>
-                </div>
-
-                <div class="metric">
-                    <span>Execution Risk</span>
-                    {% if m.risk %}
-                        <strong class="risk risk-{{ m.risk|lower }}">{{ m.risk }}</strong>
+                <div class="kpi">
+                    <span class="kpi-label">Feasibility</span>
+                    {% if m.feasibility_score is None %}
+                        <span class="kpi-value">—</span>
+                        <span class="kpi-sub">add tasks to evaluate</span>
                     {% else %}
-                        <strong>—</strong>
+                        <span class="kpi-value">{{ m.feasibility_score|floatformat:0 }}<small>/100</small></span>
+                        <div class="mini-track"><div class="mini-fill" style="width: {{ m.feasibility_score|floatformat:'1u' }}%"></div></div>
                     {% endif %}
                 </div>
 
-                <div class="metric">
-                    <span>Est. Completion</span>
-                    <strong>{{ m.estimated_completion_date|date:"d M Y"|default:"—" }}</strong>
+                <div class="kpi kpi-gauge-card">
+                    <span class="kpi-label">Completion Probability Index</span>
+                    {% if m.completion_probability_index is None %}
+                        <span class="kpi-value">—</span>
+                    {% else %}
+                        <div class="gauge gauge-{{ m.risk|lower }}" style="--value: {{ m.completion_probability_index|floatformat:'1u' }}">
+                            <span>{{ m.completion_probability_index|floatformat:0 }}</span>
+                        </div>
+                    {% endif %}
+                    <span class="kpi-sub">deterministic score</span>
+                </div>
+
+                <div class="kpi">
+                    <span class="kpi-label">Execution Risk</span>
+                    {% if m.risk %}
+                        <span class="risk-badge risk-{{ m.risk|lower }}">
+                            <span class="dot"></span>{{ m.risk }}
+                        </span>
+                    {% else %}
+                        <span class="kpi-value">—</span>
+                    {% endif %}
+                    <span class="kpi-sub">
+                        {% if m.required_daily_hours is None %}deadline reached{% else %}needs {{ m.required_daily_hours|floatformat:1 }} h of {{ goal.daily_available_hours|floatformat:"-1" }} h/day{% endif %}
+                    </span>
+                </div>
+
+                <div class="kpi">
+                    <span class="kpi-label">Est. Completion</span>
+                    <span class="kpi-value kpi-value-date">{{ m.estimated_completion_date|date:"d M Y"|default:"—" }}</span>
                     {% if m.finishes_before_deadline is False %}
-                        <small class="text-danger">after deadline</small>
+                        <span class="kpi-sub text-danger">after the deadline</span>
                     {% elif m.finishes_before_deadline %}
-                        <small>before deadline</small>
+                        <span class="kpi-sub text-success">before the deadline</span>
+                    {% else %}
+                        <span class="kpi-sub">not enough pace to project</span>
                     {% endif %}
                 </div>
 
-                <div class="metric">
-                    <span>Schedule Variance</span>
-                    <strong>{{ m.schedule_variance|floatformat:0 }} pts</strong>
-                    <small>vs linear plan</small>
+            </div>
+
+            <div class="stat-strip">
+                <div class="stat">
+                    <span class="stat-label">Required Daily</span>
+                    <span class="stat-value">{% if m.required_daily_hours is None %}—{% else %}{{ m.required_daily_hours|floatformat:1 }} h{% endif %}</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Execution Rate</span>
+                    <span class="stat-value">{{ m.execution_rate|floatformat:1 }} h/day</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Logged</span>
+                    <span class="stat-value">{{ m.logged_hours|floatformat:1 }} h</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Schedule Variance</span>
+                    <span class="stat-value {% if m.schedule_variance <= -10 %}text-danger{% elif m.schedule_variance >= 10 %}text-success{% endif %}">
+                        {% if m.schedule_variance > 0 %}+{% endif %}{{ m.schedule_variance|floatformat:0 }} pts
+                    </span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Streak</span>
+                    <span class="stat-value">{{ m.current_streak }} day{{ m.current_streak|pluralize }}</span>
                 </div>
             </div>
 
-            <ul class="factor-list">
-                {% for factor in m.factors %}
-                    <li class="factor factor-{{ factor.severity }}">{{ factor.message }}</li>
-                {% endfor %}
-            </ul>
-            {% endwith %}
+            {% if m.factors %}
+                <div class="insights">
+                    <h3 class="section-title">Execution Insights</h3>
+                    <ul class="factor-list">
+                        {% for factor in m.factors %}
+                            <li class="factor factor-{{ factor.severity }}">
+                                <span class="factor-icon" aria-hidden="true">
+                                    {% if factor.severity == "positive" %}✓{% elif factor.severity == "critical" %}!{% elif factor.severity == "warning" %}▲{% else %}i{% endif %}
+                                </span>
+                                <span>{{ factor.message }}</span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
 
-            <h3 class="section-title">Tasks</h3>
+            <details class="tasks" open>
+                <summary>
+                    <span class="section-title">Tasks</span>
+                    <span class="count-pill">{{ goal.tasks.all|length }}</span>
+                    <span class="summary-hint">click to collapse / expand</span>
+                </summary>
 
-            <ul class="task-list">
+                <ul class="task-list">
+                    {% for task in goal.tasks.all %}
+                        <li class="task{% if task.is_completed %} task-done{% endif %}">
 
-                {% for task in goal.tasks.all %}
-
-                    <li class="task{% if task.is_completed %} task-done{% endif %}">
-
-                        <div class="task-info">
-                            <strong>{{ task.title }}</strong>
-
-                            <span class="task-meta">
-                                {{ task.estimated_hours }} hrs estimated ·
-                                {{ task.logged_hours|floatformat:1 }} hrs logged ·
-                                {{ task.get_status_display }} ·
-                                {{ task.get_priority_display }}
-                            </span>
-                        </div>
-
-                        <div class="actions">
-                            {% if not task.is_completed %}
-                                <a href="{% url 'log_work' task.id %}" class="btn">Log Work</a>
-                            {% endif %}
-
-                            <form method="post" action="{% url 'toggle_task' task.id %}">
+                            <form method="post" action="{% url 'toggle_task' task.id %}" class="task-check-form">
                                 {% csrf_token %}
-                                <button type="submit" class="btn btn-secondary">
-                                    {% if task.is_completed %}Reopen{% else %}Mark Complete{% endif %}
+                                <button type="submit" class="task-check" title="{% if task.is_completed %}Reopen task{% else %}Mark complete{% endif %}" aria-label="{% if task.is_completed %}Reopen {{ task.title }}{% else %}Mark {{ task.title }} complete{% endif %}">
+                                    {% if task.is_completed %}✓{% endif %}
                                 </button>
                             </form>
 
-                            <a href="{% url 'edit_task' task.id %}" class="btn btn-secondary">Edit</a>
-                        </div>
+                            <div class="task-info">
+                                <span class="task-title">{{ task.title }}</span>
+                                <span class="task-meta">
+                                    <span class="badge status-{{ task.status|lower }}">{{ task.get_status_display }}</span>
+                                    <span class="badge priority-{{ task.priority|lower }}">{{ task.get_priority_display }}</span>
+                                    <span>{{ task.estimated_hours|floatformat:"-1" }} h est.</span>
+                                    <span>·</span>
+                                    <span>{{ task.logged_hours|floatformat:1 }} h logged</span>
+                                </span>
+                            </div>
 
-                    </li>
+                            <div class="task-actions">
+                                {% if not task.is_completed %}
+                                    <a href="{% url 'log_work' task.id %}" class="btn btn-primary btn-sm">Log Work</a>
+                                {% endif %}
+                                <a href="{% url 'edit_task' task.id %}" class="btn btn-ghost btn-sm">Edit</a>
+                            </div>
 
-                {% empty %}
+                        </li>
+                    {% empty %}
+                        <li class="empty-inline">No tasks yet. Add one so the Execution Engine can evaluate this goal.</li>
+                    {% endfor %}
+                </ul>
 
-                    <li class="empty">
-                        No tasks yet.
-                    </li>
+                <a href="{% url 'create_task' goal.id %}" class="btn btn-secondary btn-sm add-task">+ Add Task</a>
+            </details>
 
-                {% endfor %}
+        </section>
 
-            </ul>
-
-            <br>
-
-            <a href="{% url 'create_task' goal.id %}" class="btn">+ Add Task</a>
-
-        </div>
-
+        {% endwith %}
     {% empty %}
 
-        <div class="goal-card empty">
+        <section class="empty-state">
+            <div class="empty-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>
+            </div>
             <h2>No goals yet</h2>
-            <p>Describe a goal to the AI Planner, or create one manually.</p>
-
-            <a href="{% url 'ai_plan' %}" class="btn">AI Planner</a>
-            <a href="{% url 'create_goal' %}" class="btn btn-secondary">Create Goal</a>
-        </div>
+            <p>Describe a goal in plain language and let the AI Goal Interpreter build the plan. The Execution Engine will tell you whether it's achievable.</p>
+            <div class="actions actions-center">
+                <a href="{% url 'ai_plan' %}" class="btn btn-primary">Open AI Goal Planner</a>
+                <a href="{% url 'create_goal' %}" class="btn btn-secondary">Create Goal Manually</a>
+            </div>
+        </section>
 
     {% endfor %}
 

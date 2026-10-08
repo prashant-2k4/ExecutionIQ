@@ -119,3 +119,51 @@ class CreateGoalFromPlanTests(TestCase):
                 )
 
         self.assertFalse(Goal.objects.exists())
+
+
+class DeadlineExtractionTests(TestCase):
+    TODAY = date(2026, 10, 9)
+    TASKS = '"tasks": [{"title": "Basics", "estimated_hours": 5}]'
+
+    def plan(self, extra):
+        return parse_plan('{"goal": "Learn Python", %s, %s}' % (extra, self.TASKS))
+
+    def test_duration_in_days(self):
+        plan = self.plan('"deadline_days": 60, "deadline_date": null')
+        self.assertEqual(plan.resolve_deadline(self.TODAY, 30), date(2026, 12, 8))
+
+    def test_thirty_days(self):
+        plan = self.plan('"deadline_days": 30, "deadline_date": null')
+        self.assertEqual(plan.resolve_deadline(self.TODAY, 30), date(2026, 11, 8))
+
+    def test_explicit_date(self):
+        plan = self.plan('"deadline_days": null, "deadline_date": "2026-12-31"')
+        self.assertEqual(plan.resolve_deadline(self.TODAY, 30), date(2026, 12, 31))
+
+    def test_explicit_date_wins_over_duration(self):
+        plan = self.plan('"deadline_days": 10, "deadline_date": "2026-12-31"')
+        self.assertEqual(plan.resolve_deadline(self.TODAY, 30), date(2026, 12, 31))
+
+    def test_no_deadline_uses_default(self):
+        plan = parse_plan('{"goal": "Learn Python", %s}' % self.TASKS)
+        self.assertEqual(plan.resolve_deadline(self.TODAY, 30), date(2026, 11, 8))
+
+    def test_unusable_values_fall_back_to_default(self):
+        for extra in [
+            '"deadline_days": "soon", "deadline_date": "next year"',
+            '"deadline_days": 0, "deadline_date": null',
+            '"deadline_days": -5, "deadline_date": null',
+            '"deadline_days": 99999, "deadline_date": null',
+            '"deadline_days": null, "deadline_date": "2026-10-01"',  # in the past
+            '"deadline_days": null, "deadline_date": "2026-10-09"',  # today
+        ]:
+            with self.subTest(extra=extra):
+                plan = self.plan(extra)
+                self.assertEqual(plan.resolve_deadline(self.TODAY, 30), date(2026, 11, 8))
+
+    def test_prompt_includes_todays_date(self):
+        create = Mock(return_value=SimpleNamespace(output_text=VALID_PLAN))
+        client = SimpleNamespace(interactions=SimpleNamespace(create=create))
+        with patch.object(ai_planner, "_get_client", return_value=client):
+            generate_goal_plan("Learn Python, deadline 60 days", today=self.TODAY)
+        self.assertIn("Today's date: 2026-10-09", create.call_args.kwargs["input"])

@@ -8,16 +8,19 @@ is left entirely to the Execution Engine.
 import json
 import logging
 import re
+from datetime import date, timedelta
 from decimal import Decimal
 from functools import lru_cache
 from typing import Literal
 
 from django.conf import settings
+from django.utils import timezone
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 logger = logging.getLogger(__name__)
 
 MAX_TASKS = 30
+MAX_DEADLINE_DAYS = 3650
 
 
 class AIPlannerError(Exception):
@@ -56,11 +59,43 @@ class PlannedTask(BaseModel):
 class GoalPlan(BaseModel):
     goal: str = Field(min_length=1, max_length=200)
     tasks: list[PlannedTask] = Field(min_length=1, max_length=MAX_TASKS)
+    # Deadline information extracted from the user's text, if any. The AI only
+    # extracts it; the actual date is computed in Python (resolve_deadline).
+    deadline_days: int | None = None
+    deadline_date: date | None = None
 
     @field_validator("goal", mode="before")
     @classmethod
     def strip_goal(cls, value):
         return value.strip() if isinstance(value, str) else value
+
+    @field_validator("deadline_days", mode="before")
+    @classmethod
+    def lenient_days(cls, value):
+        # An unusable duration falls back to the default instead of rejecting the plan.
+        try:
+            days = int(value)
+        except (TypeError, ValueError):
+            return None
+        return days if 1 <= days <= MAX_DEADLINE_DAYS else None
+
+    @field_validator("deadline_date", mode="before")
+    @classmethod
+    def lenient_date(cls, value):
+        if isinstance(value, date):
+            return value
+        try:
+            return date.fromisoformat(str(value).strip())
+        except (TypeError, ValueError):
+            return None
+
+    def resolve_deadline(self, today, default_days):
+        """Deadline from an explicit date, else today + duration, else the default."""
+        if self.deadline_date and today < self.deadline_date <= today + timedelta(days=MAX_DEADLINE_DAYS):
+            return self.deadline_date
+        if self.deadline_days:
+            return today + timedelta(days=self.deadline_days)
+        return today + timedelta(days=default_days)
 
     @property
     def total_estimated_hours(self):
@@ -70,14 +105,28 @@ class GoalPlan(BaseModel):
 PROMPT_TEMPLATE = """
 You are the AI planning component of ExecutionIQ.
 
+Today's date: {today}
+
 User goal:
 {goal_text}
 
 Break this goal into realistic, meaningful tasks (at most {max_tasks}).
 
+Also extract any deadline the user states:
+- A duration such as "in 60 days", "deadline 3 weeks" or "within 2 months":
+  set "deadline_days" to that duration in days (weeks x 7, months x 30) and
+  "deadline_date" to null.
+- An explicit date such as "before 13 September" or "by 2026-12-31":
+  set "deadline_date" to that date as YYYY-MM-DD (the next such date on or
+  after today's date) and "deadline_days" to null.
+- No deadline mentioned: set both to null.
+Size the tasks so they fit the stated timeframe.
+
 Return ONLY a JSON object with exactly this shape:
 {{
-  "goal": "<short goal title, max 200 characters>",
+  "goal": "<short goal title without the deadline, max 200 characters>",
+  "deadline_days": <integer or null>,
+  "deadline_date": "<YYYY-MM-DD>" or null,
   "tasks": [
     {{"title": "<task title>", "estimated_hours": <positive number>, "priority": "LOW" | "MEDIUM" | "HIGH"}}
   ]
@@ -129,9 +178,14 @@ def _get_client():
     )
 
 
-def generate_goal_plan(goal_text):
+def generate_goal_plan(goal_text, today=None):
     """Ask Gemini for a task breakdown and return a validated GoalPlan."""
-    prompt = PROMPT_TEMPLATE.format(goal_text=goal_text, max_tasks=MAX_TASKS)
+    today = today or timezone.localdate()
+    prompt = PROMPT_TEMPLATE.format(
+        goal_text=goal_text,
+        max_tasks=MAX_TASKS,
+        today=today.isoformat(),
+    )
 
     try:
         interaction = _get_client().interactions.create(

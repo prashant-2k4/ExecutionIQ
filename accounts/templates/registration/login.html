@@ -3,12 +3,11 @@
 {% block title %}Log In - ExecutionIQ{% endblock %}
 
 {% block content %}
-    <div class="page-header">
-        <h1>Log In</h1>
-    </div>
-
-    <form method="post" class="form-card">
+    <form method="post" class="auth-card">
         {% csrf_token %}
+
+        <h1>Welcome back</h1>
+        <p class="page-subtitle">Log in to see whether your goals are on track.</p>
 
         {% if form.non_field_errors %}
             <div class="alert alert-error">Invalid username or password.</div>
@@ -23,8 +22,8 @@
         {% endfor %}
 
         <input type="hidden" name="next" value="{{ next }}">
-        <button type="submit" class="btn">Log In</button>
-    </form>
+        <button type="submit" class="btn btn-primary btn-block">Log In</button>
 
-    <p>New to ExecutionIQ? <a href="{% url 'register' %}">Create an account</a>.</p>
+        <p class="auth-switch">New to ExecutionIQ? <a href="{% url 'register' %}">Create an account</a></p>
+    </form>
 {% endblock %}

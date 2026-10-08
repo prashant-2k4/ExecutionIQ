@@ -1,5 +1,3 @@
-from datetime import timedelta
-
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
@@ -13,8 +11,8 @@ from core.services.goal_builder import create_goal_from_plan
 from .forms import AIPlanForm, ExecutionLogForm, GoalForm, TaskForm
 from .models import Goal, Task
 
-# Temporary planner defaults until natural-language extraction and clarifying
-# questions replace them (roadmap P3).
+# Used when the goal text states no deadline, and for daily hours until
+# clarifying questions replace it (roadmap P3).
 AI_PLAN_DEFAULT_DAYS = 30
 AI_PLAN_DEFAULT_DAILY_HOURS = 2
 
@@ -61,6 +59,34 @@ def create_goal(request):
         form = GoalForm()
 
     return render(request, "core/goal_form.html", {"form": form})
+
+
+@login_required
+def delete_goal(request, goal_id):
+    # GET shows a confirmation page; only a POST actually deletes.
+    goal = get_object_or_404(
+        Goal.objects.prefetch_related("tasks__execution_logs"),
+        id=goal_id,
+        user=request.user,
+    )
+
+    if request.method == "POST":
+        title = goal.title
+        goal.delete()
+        messages.success(request, f'Goal "{title}" was deleted.')
+        return redirect("goal_list")
+
+    tasks = goal.tasks.all()
+    return render(
+        request,
+        "core/goal_confirm_delete.html",
+        {
+            "goal": goal,
+            "task_count": len(tasks),
+            "completed_count": sum(1 for task in tasks if task.is_completed),
+            "logged_hours": sum(task.logged_hours for task in tasks),
+        },
+    )
 
 
 @login_required
@@ -157,7 +183,8 @@ def generate_ai_plan(request):
             goal_text = form.cleaned_data["goal_text"]
 
             try:
-                plan = generate_goal_plan(goal_text)
+                today = timezone.localdate()
+                plan = generate_goal_plan(goal_text, today=today)
             except AIPlannerError as exc:
                 error = str(exc)
             else:
@@ -165,7 +192,7 @@ def generate_ai_plan(request):
                     user=request.user,
                     plan=plan,
                     goal_text=goal_text,
-                    deadline=timezone.localdate() + timedelta(days=AI_PLAN_DEFAULT_DAYS),
+                    deadline=plan.resolve_deadline(today, AI_PLAN_DEFAULT_DAYS),
                     daily_available_hours=AI_PLAN_DEFAULT_DAILY_HOURS,
                 )
                 messages.success(

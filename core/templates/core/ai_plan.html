@@ -1,30 +1,102 @@
 {% extends "core/base.html" %}
 
-{% block title %}AI Planner - ExecutionIQ{% endblock %}
+{% block title %}AI Goal Planner - ExecutionIQ{% endblock %}
 
 {% block content %}
-    <div class="page-header">
-        <h1>AI Goal Planner</h1>
-    </div>
 
-    <p class="goal-description">
-        Describe your goal in plain language. The AI Goal Interpreter breaks it
-        into tasks; the Execution Engine then evaluates whether it is achievable.
-    </p>
+    <section class="planner-hero">
+        <p class="eyebrow">AI Goal Interpreter</p>
+        <h1>What do you want to achieve?</h1>
+        <p class="page-subtitle">
+            Describe your goal in plain language. AI breaks it into a structured plan,
+            then the deterministic Execution Engine evaluates whether it is achievable.
+        </p>
 
-    {% if error %}
-        <div class="alert alert-error">{{ error }}</div>
-    {% endif %}
+        {% if error %}
+            <div class="alert alert-error">{{ error }}</div>
+        {% endif %}
 
-    <form method="post" class="form-card">
-        {% csrf_token %}
+        <form method="post" class="planner-form" id="planner-form">
+            {% csrf_token %}
 
-        <div class="form-field">
-            {{ form.goal_text.label_tag }}
-            {{ form.goal_text }}
+            <label for="{{ form.goal_text.id_for_label }}" class="sr-only">Your goal</label>
+            <div class="planner-input">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg>
+                {{ form.goal_text }}
+                <button type="submit" class="btn btn-primary btn-lg" id="planner-submit">
+                    <span class="btn-label">Generate Plan</span>
+                    <span class="btn-loading"><span class="spinner" aria-hidden="true"></span>Generating…</span>
+                </button>
+            </div>
             {{ form.goal_text.errors }}
-        </div>
 
-        <button type="submit" class="btn">Generate Plan</button>
-    </form>
+            <p class="planner-status" id="planner-status" hidden>
+                The AI Goal Interpreter is building your plan. This usually takes 10–20 seconds.
+            </p>
+
+            <div class="examples">
+                <span class="muted">Try:</span>
+                <button type="button" class="example" data-example="I want to learn Python in 30 days">Learn Python in 30 days</button>
+                <button type="button" class="example" data-example="Finish Django REST Framework basics in 3 weeks">Django REST in 3 weeks</button>
+                <button type="button" class="example" data-example="Prepare for data structures and algorithms interviews in 6 weeks">DSA interview prep</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="pipeline" aria-label="How ExecutionIQ works">
+        <div class="pipeline-step">
+            <span class="step-num">1</span>
+            <h3>Natural Language Goal</h3>
+            <p>You describe the goal in your own words.</p>
+        </div>
+        <div class="pipeline-arrow" aria-hidden="true">→</div>
+        <div class="pipeline-step step-ai">
+            <span class="step-num">2</span>
+            <h3>AI Goal Interpreter</h3>
+            <p>Gemini breaks it into prioritised, estimated tasks.</p>
+        </div>
+        <div class="pipeline-arrow" aria-hidden="true">→</div>
+        <div class="pipeline-step step-engine">
+            <span class="step-num">3</span>
+            <h3>Execution Engine</h3>
+            <p>Deterministic feasibility, risk and completion forecast.</p>
+        </div>
+        <div class="pipeline-arrow" aria-hidden="true">→</div>
+        <div class="pipeline-step">
+            <span class="step-num">4</span>
+            <h3>Execution Dashboard</h3>
+            <p>Track progress; metrics update as you log work.</p>
+        </div>
+    </section>
+
+    <script>
+        (function () {
+            var form = document.getElementById("planner-form");
+            var input = form.querySelector("input[name='goal_text']");
+            var submit = document.getElementById("planner-submit");
+            var status = document.getElementById("planner-status");
+
+            form.querySelectorAll(".example").forEach(function (button) {
+                button.addEventListener("click", function () {
+                    input.value = button.dataset.example;
+                    input.focus();
+                });
+            });
+
+            form.addEventListener("submit", function () {
+                if (!input.value.trim()) { return; }
+                submit.disabled = true;
+                submit.classList.add("is-loading");
+                status.hidden = false;
+            });
+
+            // Restore the button if the page comes back from the browser cache.
+            window.addEventListener("pageshow", function () {
+                submit.disabled = false;
+                submit.classList.remove("is-loading");
+                status.hidden = true;
+            });
+        })();
+    </script>
+
 {% endblock %}

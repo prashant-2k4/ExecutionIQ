@@ -148,3 +148,67 @@ class AIPlanViewTests(TestCase):
 
         planner.assert_not_called()
         self.assertEqual(response.status_code, 200)
+
+
+class DeleteGoalTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("alice")
+        self.client.force_login(self.user)
+        self.goal = Goal.objects.create(
+            user=self.user,
+            title="Learn Django",
+            deadline=date.today() + timedelta(days=10),
+            daily_available_hours=2,
+        )
+        task = Task.objects.create(goal=self.goal, title="Models", estimated_hours=4)
+        ExecutionLog.objects.create(task=task, date=date.today(), duration_minutes=90)
+        self.url = reverse("delete_goal", args=[self.goal.id])
+
+    def test_get_shows_confirmation_without_deleting(self):
+        response = self.client.get(self.url)
+
+        self.assertContains(response, "Delete this goal?")
+        self.assertContains(response, "Learn Django")
+        self.assertContains(response, "1.5 h")
+        self.assertTrue(Goal.objects.filter(id=self.goal.id).exists())
+
+    def test_post_deletes_goal_tasks_and_logs(self):
+        response = self.client.post(self.url)
+
+        self.assertRedirects(response, reverse("goal_list"))
+        self.assertFalse(Goal.objects.exists())
+        self.assertFalse(Task.objects.exists())
+        self.assertFalse(ExecutionLog.objects.exists())
+
+    def test_other_users_cannot_delete(self):
+        self.client.force_login(User.objects.create_user("intruder"))
+
+        self.assertEqual(self.client.get(self.url).status_code, 404)
+        self.assertEqual(self.client.post(self.url).status_code, 404)
+        self.assertTrue(Goal.objects.filter(id=self.goal.id).exists())
+
+    def test_requires_login(self):
+        self.client.logout()
+        self.client.post(self.url)
+        self.assertTrue(Goal.objects.filter(id=self.goal.id).exists())
+
+    def test_dashboard_links_to_delete(self):
+        self.assertContains(self.client.get(reverse("goal_list")), self.url)
+
+
+class AIPlanDeadlineTests(TestCase):
+    def setUp(self):
+        self.client.force_login(User.objects.create_user("alice"))
+
+    def post(self, plan_json):
+        with patch("core.views.generate_goal_plan", return_value=parse_plan(plan_json)):
+            self.client.post(reverse("ai_plan"), {"goal_text": "I want to learn basics of python, deadline 60 days."})
+        return Goal.objects.get()
+
+    def test_extracted_duration_sets_deadline(self):
+        goal = self.post('{"goal": "Python basics", "deadline_days": 60, "tasks": [{"title": "A", "estimated_hours": 2}]}')
+        self.assertEqual(goal.deadline, date.today() + timedelta(days=60))
+
+    def test_missing_deadline_keeps_30_day_default(self):
+        goal = self.post('{"goal": "Python basics", "tasks": [{"title": "A", "estimated_hours": 2}]}')
+        self.assertEqual(goal.deadline, date.today() + timedelta(days=30))
